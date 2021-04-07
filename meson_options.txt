@@ -1,0 +1,3 @@
+option('static_runtime', type: 'boolean', value: false, description: 'Set to true when you want static libraries/dependencies and runtime in ts-c-cpp-parser')
+option('subprojects_check', type: 'boolean', value: false, description: 'Check if git subprojects are up-to-date. Might be useful to disable this when developing on a different subproject version')
+option('use_sys_tree_sitter', type: 'feature', value: 'disabled')
