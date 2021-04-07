@@ -1,6 +1,9 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <rz_types.h>
+#include <rz_list.h>
+#include <rz_util/rz_file.h>
 #include <tree_sitter/api.h>
 
 // Declare the `tree_sitter_c` function, which is
@@ -12,15 +15,31 @@ TSLanguage *tree_sitter_c();
 //TSLanguage *tree_sitter_cpp();
 
 
-int main() {
+int main(int argc, char **argv) {
+  // Build a syntax tree based on source code stored in a string.
+  //const char *source_code = "typedef struct bla { int a; char **b[52]; } bla_t;";
+
+  if (argc < 1) {
+	  printf("Usage ts-c-cpp-parser <filename>\n");
+	  return -1;
+  }
+  char *file_path = argv[1];
+  if (!file_path) {
+	  printf("Usage ts-c-cpp-parser <filename>\n");
+	  return -1;
+  }
+
+  size_t read_bytes = 0;
+  char *source_code = rz_file_slurp(file_path, &read_bytes);
+  if (!source_code || !read_bytes) {
+		return -1;
+  }
+
   // Create a parser.
   TSParser *parser = ts_parser_new();
-
   // Set the parser's language (C in this case)
   ts_parser_set_language(parser, tree_sitter_c());
 
-  // Build a syntax tree based on source code stored in a string.
-  const char *source_code = "typedef struct bla { int a; char **b[52]; } bla_t;";
 
   TSTree *tree = ts_parser_parse_string(
     parser,
