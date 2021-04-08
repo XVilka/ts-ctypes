@@ -1,6 +1,7 @@
 project('ts-c-cpp-parser', 'c')
 
 rz_util_lib = dependency('rz_util')
+rz_type_lib = dependency('rz_type')
 
 py3_exe = import('python').find_installation()
 check_meson_subproject_py = files('sys/check_meson_subproject.py')
@@ -54,6 +55,7 @@ tree_sitter_c_dep = tree_sitter_c_proj.get_variable('tree_sitter_c_dep')
 
 deps = [
 	rz_util_lib,
+	rz_type_lib,
 	tree_sitter_dep,
 	tree_sitter_c_dep,
 #	tree_sitter_cpp_dep
@@ -62,6 +64,7 @@ deps = [
 files = [
   'c_cpp_parser.c',
   'types_parser.c',
+  'types_storage.c',
 ]
 
 summary({

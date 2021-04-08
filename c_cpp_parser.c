@@ -24,6 +24,13 @@ int main(int argc, char **argv) {
 		printf("Usage ts-c-cpp-parser <filename>\n");
 		return -1;
 	}
+	bool verbose = false;
+	if (argc > 2 && argv[2]) {
+		// poor-men argument parsing
+		if (!strcmp(argv[2], "-v") || !strcmp(argv[2], "--verbose")) {
+			verbose = true;
+		}
+	}
 
 	size_t read_bytes = 0;
 	const char *source_code = rz_file_slurp(file_path, &read_bytes);
@@ -55,20 +62,35 @@ int main(int argc, char **argv) {
 	}
 
 	// Some debugging
-	printf("root_node (%d children): %s\n", root_node_child_count, ts_node_type(root_node));
-	// Print the syntax tree as an S-expression.
-	char *string = ts_node_string(root_node);
-	printf("Syntax tree: %s\n", string);
-	free(string);
+	if (verbose) {
+		printf("root_node (%d children): %s\n", root_node_child_count, ts_node_type(root_node));
+		// Print the syntax tree as an S-expression.
+		char *string = ts_node_string(root_node);
+		printf("Syntax tree: %s\n", string);
+		free(string);
+	}
+
+	// Create new C parser state
+	CParserState *state = c_parser_state_new();
+	if (!state) {
+		eprintf("CParserState initialization error!\n");
+		ts_tree_delete(tree);
+		ts_parser_delete(parser);
+		return -1;
+	}
+	state->verbose = verbose;
 
 	// Filter types function prototypes and start parsing
 	int i = 0;
 	for (i = 0; i < root_node_child_count; i++) {
-		printf("Processing %d child...\n", i);
+		if (verbose) {
+			printf("Processing %d child...\n", i);
+		}
 		TSNode child = ts_node_named_child(root_node, i);
-		filter_type_nodes(child, source_code);
+		filter_type_nodes(state, child, source_code);
 	}
 
+	c_parser_state_free(state);
 	ts_tree_delete(tree);
 	ts_parser_delete(parser);
 	return 0;
