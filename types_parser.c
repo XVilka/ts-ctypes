@@ -218,6 +218,119 @@ int parse_struct_node(CParserState *state, TSNode structnode, const char *text) 
 
 // Union is exact copy of struct but size computation is different
 
+// Parsing enum
+int parse_enum_node(CParserState *state, TSNode enumnode, const char *text) {
+	rz_return_val_if_fail(!ts_node_is_null(enumnode), -1);
+	rz_return_val_if_fail(ts_node_is_named(enumnode), -1);
+	int enum_node_child_count = ts_node_named_child_count(enumnode);
+	if (enum_node_child_count < 1 || enum_node_child_count > 2) {
+		node_malformed_error(enumnode, "enum");
+		return -1;
+	}
+	if (enum_node_child_count < 2) {
+		// Anonymous or forward declaration enum
+		TSNode child = ts_node_child(enumnode, 1);
+		if (!ts_node_is_null(child) && ts_node_is_named(child)) {
+			const char *node_type = ts_node_type(child);
+			if (!node_type) {
+				node_malformed_error(enumnode, "enum");
+				return -1;
+			}
+			// "enum bla;"
+			if (!strcmp(node_type, "type_identifier")) {
+				// We really skip such declarations since they don't
+				// make sense for our goal
+			// Anonymous enum, "enum { A = 1, B = 2 };"
+			} else if (!strcmp(node_type, "enumerator_list")) {
+				// FIXME: Handle anonymous enums
+				eprintf("Anonymous enums aren't supported yet!\n");
+				return -1;
+			} else {
+				node_malformed_error(enumnode, "enum");
+				return -1;
+			}
+		} else {
+			node_malformed_error(enumnode, "enum");
+			return -1;
+		}
+	}
+	TSNode enum_name = ts_node_named_child(enumnode, 0);
+	TSNode enum_body = ts_node_named_child(enumnode, 1);
+	if (ts_node_is_null(enum_name) || ts_node_is_null(enum_body)) {
+		eprintf("ERROR: Enum name and body nodes should not be NULL!\n");
+		node_malformed_error(enumnode, "enum");
+		return -1;
+	}
+	int body_child_count = ts_node_named_child_count(enum_body);
+	const char *realname = ts_node_sub_string(enum_name, text);
+	if (!realname || !body_child_count) {
+		eprintf("ERROR: Enum name should not be NULL!\n");
+		node_malformed_error(enumnode, "enum");
+		return -1;
+	}
+	printf("enum name: %s\n", realname);
+	int i;
+	for (i = 0; i < body_child_count; i++) {
+		if (state->verbose) {
+			printf("enum: processing %d field...\n", i);
+		}
+		TSNode child = ts_node_named_child(enum_body, i);
+		const char *node_type = ts_node_type(child);
+		// Every field should have (field_declaration) AST clause
+		if (strcmp(node_type, "enumerator")) {
+			eprintf("ERROR: Enum member AST should contain (enumerator) node!\n");
+			node_malformed_error(child, "enum field");
+			return -1;
+		}
+		// Every member node should have at least 1 child!
+		int member_child_count = ts_node_named_child_count(child);
+		if (member_child_count < 1 || member_child_count > 2) {
+			eprintf("ERROR: enum member AST cannot contain less than 1 or more than 2 items");
+			node_malformed_error(child, "enum field");
+			return -1;
+		}
+		// Every member can be:
+		// - empty
+		// - atomic: "1"
+		// - expression: "1 << 2"
+		if (state->verbose) {
+			const char *membertext = ts_node_sub_string(child, text);
+			char *nodeast = ts_node_string(child);
+			if (membertext && nodeast) {
+				printf("member text: %s\n", membertext);
+				printf("member ast: %s\n", nodeast);
+			}
+			free(nodeast);
+		}
+		if (member_child_count == 1) {
+			// It's an empty field, like just "A,"
+			TSNode member_identifier = ts_node_named_child(child, 0);
+			if (ts_node_is_null(member_identifier)) {
+				eprintf("ERROR: Enum member identifier should not be NULL!\n");
+				node_malformed_error(child, "struct field");
+				return -1;
+			}
+			const char *real_identifier = ts_node_sub_string(member_identifier, text);
+			printf("enum member: %s\n", real_identifier);
+		} else {
+			// It's a proper field, like "A = 1,"
+			TSNode member_identifier = ts_node_named_child(child, 0);
+			TSNode member_value = ts_node_named_child(child, 1);
+			if (ts_node_is_null(member_identifier) || ts_node_is_null(member_value)) {
+				eprintf("ERROR: Enum member identifier and value should not be NULL!\n");
+				node_malformed_error(child, "struct field");
+				return -1;
+			}
+			const char *real_identifier = ts_node_sub_string(member_identifier, text);
+			const char *real_value = ts_node_sub_string(member_value, text);
+			// FIXME: Use RzNum to calculate complex expressions
+			printf("enum member: %s value: %s\n", real_identifier, real_value);
+		}
+	}
+	return 0;
+}
+
+
 int parse_type_tree(CParserState *state, TSNode typenode, const char *text) {
 	rz_return_val_if_fail(!ts_node_is_null(typenode), -1);
 	rz_return_val_if_fail(ts_node_is_named(typenode), -1);
@@ -247,10 +360,15 @@ int filter_type_nodes(CParserState *state, TSNode node, const char *text) {
 	} else if (!strcmp(node_type, "struct_specifier")) {
 		result = parse_type_tree(state, node, text);
 	} else if (!strcmp(node_type, "enum_specifier")) {
-		result = parse_type_tree(state, node, text);
+		result = parse_enum_node(state, node, text);
 	} else if (!strcmp(node_type, "type_definition")) {
 		result = parse_type_tree(state, node, text);
 	}
 
+	// Another case where there is a declaration clause
+	// In this case we should drop the declaration itself
+	// and parse only the corresponding type
+	// In case of anonymous type we could use identifier as a name for this type?
+	//
 	return result;
 }

@@ -1,4 +1,4 @@
-enum {
+enum RzOutputMode {
 	RZ_OUTPUT_MODE_STANDARD = 1 << 0,
 	RZ_OUTPUT_MODE_JSON = 1 << 1,
 	RZ_OUTPUT_MODE_RIZIN = 1 << 2,
@@ -7,4 +7,4 @@ enum {
 	RZ_OUTPUT_MODE_LONG = 1 << 5,
 	RZ_OUTPUT_MODE_LONG_JSON = 1 << 6,
 	RZ_OUTPUT_MODE_TABLE = 1 << 7,
-} RzOutputMode;
+};
