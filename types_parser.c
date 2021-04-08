@@ -54,6 +54,8 @@ void c_parser_state_free(CParserState *state) {
 // - typedef (type_definition)
 // - atomic type
 
+// Identifiers can be simple or arrays or pointers or both
+
 int parse_struct_node(CParserState *state, TSNode structnode, const char *text) {
 	rz_return_val_if_fail(!ts_node_is_null(structnode), -1);
 	rz_return_val_if_fail(ts_node_is_named(structnode), -1);
@@ -180,12 +182,35 @@ int parse_struct_node(CParserState *state, TSNode structnode, const char *text) 
 			eprintf("field type: %s field_identifier: %s bits: %d\n", real_type, real_identifier, bits);
 		} else {
 			printf("field children: %d\n", field_child_count);
-			// 2nd case, atomic field
-			// AST looks like
-			// type: (primitive_type) declarator: (field_identifier)
-			// 3rd case, complex type
-			// AST looks like
-			// type: (struct_specifier ...) declarator: (field_identifier)
+			TSNode field_type = ts_node_named_child(child, 0);
+			TSNode field_identifier = ts_node_named_child(child, 1);
+			if (ts_node_is_null(field_type) || ts_node_is_null(field_identifier)) {
+				eprintf("ERROR: Struct field type and identifier should not be NULL!\n");
+				node_malformed_error(child, "struct field");
+				return -1;
+			}
+			if (!strcmp(ts_node_type(field_type), "primitive_type")) {
+				// 2nd case, atomic field
+				// AST looks like
+				// type: (primitive_type) declarator: (field_identifier)
+				const char *real_type = ts_node_sub_string(field_type, text);
+				if (!real_type) {
+					eprintf("ERROR: Struct field type should not be NULL!\n");
+					node_malformed_error(child, "struct field");
+					return -1;
+				}
+				const char *real_identifier = ts_node_sub_string(field_identifier, text);
+				if (!real_identifier) {
+					eprintf("ERROR: Struct bitfield identifier should not be NULL!\n");
+					node_malformed_error(child, "struct field");
+					return -1;
+				}
+				eprintf("field type: %s field_identifier: %s\n", real_type, real_identifier);
+			} else {
+				// 3rd case, complex type
+				// AST looks like
+				// type: (struct_specifier ...) declarator: (field_identifier)
+			}
 		}
 	}
 	return 0;
