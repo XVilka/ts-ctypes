@@ -330,6 +330,62 @@ int parse_enum_node(CParserState *state, TSNode enumnode, const char *text) {
 	return 0;
 }
 
+// Parsing typedefs
+int parse_typedef_node(CParserState *state, TSNode typedefnode, const char *text) {
+	rz_return_val_if_fail(!ts_node_is_null(typedefnode), -1);
+	rz_return_val_if_fail(ts_node_is_named(typedefnode), -1);
+	int typedef_node_child_count = ts_node_named_child_count(typedefnode);
+	if (typedef_node_child_count != 2) {
+		node_malformed_error(typedefnode, "typedef");
+		return -1;
+	}
+	TSNode typedef_type = ts_node_named_child(typedefnode, 0);
+	TSNode typedef_alias = ts_node_named_child(typedefnode, 1);
+	if (ts_node_is_null(typedef_type) || ts_node_is_null(typedef_alias)) {
+		eprintf("ERROR: Typedef type and alias nodes should not be NULL!\n");
+		node_malformed_error(typedefnode, "typedef");
+		return -1;
+	}
+	const char *aliasname = ts_node_sub_string(typedef_alias, text);
+	if (!aliasname) {
+		eprintf("ERROR: Typedef alias name should not be NULL!\n");
+		node_malformed_error(typedefnode, "typedef");
+		return -1;
+	}
+	// Every typedef type can be:
+	// - atomic: "int", "uint64_t", etc
+	// - some type name - any identificator
+	// - complex type like struct, union, or enum
+	if (state->verbose) {
+		const char *typetext = ts_node_sub_string(typedef_type, text);
+		char *nodeast = ts_node_string(typedef_type);
+		if (typetext && nodeast) {
+			printf("type text: %s\n", typetext);
+			printf("type ast: %s\n", nodeast);
+		}
+		free(nodeast);
+	}
+	int type_child_count = ts_node_named_child_count(typedef_type);
+	if (!type_child_count) {
+		const char *node_type = ts_node_type(typedef_type);
+		if (!strcmp(node_type, "primitive_type")) {
+			const char *real_type = ts_node_sub_string(typedef_type, text);
+			eprintf("typedef type: %s alias: %s\n", real_type, aliasname);
+		} else if (!strcmp(node_type, "type_identifier")) {
+			const char *real_type = ts_node_sub_string(typedef_type, text);
+			eprintf("typedef type: %s alias: %s\n", real_type, aliasname);
+		} else {
+			eprintf("ERROR: Typedef type AST should contain (primitive_type) or (identifier) node!\n");
+			node_malformed_error(typedef_type, "typedef type");
+			return -1;
+		}
+	} else {
+		const char *real_type = ts_node_sub_string(typedef_type, text);
+		eprintf("complex typedef type: %s alias: %s\n", real_type, aliasname);
+	}
+	return 0;
+}
+
 
 int parse_type_tree(CParserState *state, TSNode typenode, const char *text) {
 	rz_return_val_if_fail(!ts_node_is_null(typenode), -1);
@@ -362,7 +418,7 @@ int filter_type_nodes(CParserState *state, TSNode node, const char *text) {
 	} else if (!strcmp(node_type, "enum_specifier")) {
 		result = parse_enum_node(state, node, text);
 	} else if (!strcmp(node_type, "type_definition")) {
-		result = parse_type_tree(state, node, text);
+		result = parse_typedef_node(state, node, text);
 	}
 
 	// Another case where there is a declaration clause
