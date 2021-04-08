@@ -80,6 +80,14 @@ int main(int argc, char **argv) {
 	}
 	state->verbose = verbose;
 
+	// At first step we should handle defines
+	// #define
+	// #if / #ifdef
+	// #else
+	// #endif
+	// After that, we should process include files and #error/#warning/#pragma
+	// And only after that - run the normal C/C++ syntax parsing
+
 	// Filter types function prototypes and start parsing
 	int i = 0;
 	for (i = 0; i < root_node_child_count; i++) {
