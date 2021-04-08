@@ -60,7 +60,8 @@ deps = [
 ]
 
 files = [
-  'c_cpp_parser.c'
+  'c_cpp_parser.c',
+  'types_parser.c',
 ]
 
 summary({

@@ -1,10 +1,10 @@
-#include <assert.h>
-#include <string.h>
 #include <stdio.h>
 #include <rz_types.h>
 #include <rz_list.h>
 #include <rz_util/rz_file.h>
 #include <tree_sitter/api.h>
+
+#include <types_parser.h>
 
 // Declare the `tree_sitter_c` function, which is
 // implemented by the `tree-sitter-c` library.
@@ -15,9 +15,6 @@ TSLanguage *tree_sitter_c();
 //TSLanguage *tree_sitter_cpp();
 
 int main(int argc, char **argv) {
-	// Build a syntax tree based on source code stored in a string.
-	//const char *source_code = "typedef struct bla { int a; char **b[52]; } bla_t;";
-
 	if (argc < 1) {
 		printf("Usage ts-c-cpp-parser <filename>\n");
 		return -1;
@@ -29,7 +26,7 @@ int main(int argc, char **argv) {
 	}
 
 	size_t read_bytes = 0;
-	char *source_code = rz_file_slurp(file_path, &read_bytes);
+	const char *source_code = rz_file_slurp(file_path, &read_bytes);
 	if (!source_code || !read_bytes) {
 		return -1;
 	}
@@ -49,31 +46,29 @@ int main(int argc, char **argv) {
 
 	// Get the root node of the syntax tree.
 	TSNode root_node = ts_tree_root_node(tree);
+	int root_node_child_count = ts_node_named_child_count(root_node);
+	if (!root_node_child_count) {
+		printf("Root node is empty!\n");
+		ts_tree_delete(tree);
+		ts_parser_delete(parser);
+		return 0;
+	}
 
-	// Get some child nodes.
-	TSNode typedef_node = ts_node_named_child(root_node, 0);
-	TSNode struct_node = ts_node_named_child(typedef_node, 0);
-
-	// Check that the nodes have the expected types.
-
-	printf("root_node: %s\n", ts_node_type(root_node));
-	printf("root_node: %s\n", ts_node_type(typedef_node));
-	printf("root_node: %s\n", ts_node_type(struct_node));
-
-	// Check that the nodes have the expected child counts.
-	/*
-  assert(ts_node_child_count(root_node) == 1);
-  assert(ts_node_child_count(array_node) == 5);
-  assert(ts_node_named_child_count(array_node) == 2);
-  assert(ts_node_child_count(number_node) == 0);
-  */
-
+	// Some debugging
+	printf("root_node (%d children): %s\n", root_node_child_count, ts_node_type(root_node));
 	// Print the syntax tree as an S-expression.
 	char *string = ts_node_string(root_node);
 	printf("Syntax tree: %s\n", string);
-
-	// Free all of the heap-allocated memory.
 	free(string);
+
+	// Filter types function prototypes and start parsing
+	int i = 0;
+	for (i = 0; i < root_node_child_count; i++) {
+		printf("Processing %d child...\n", i);
+		TSNode child = ts_node_named_child(root_node, i);
+		filter_type_nodes(child, source_code);
+	}
+
 	ts_tree_delete(tree);
 	ts_parser_delete(parser);
 	return 0;
