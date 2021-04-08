@@ -70,17 +70,30 @@ int parse_identifier_node(CParserState *state, TSNode identnode, const char *tex
 			printf("ident subtype: %s\n", ident_subtype);
 		}
 		// Check if it's a pointer
+		// e.g. "float *b;"
 		if (!strcmp(ident_type, "pointer_declarator")) {
 			// Pointer node could ALSO contain array node inside
+			// e.g. "char *arr[20];"
 			if (!strcmp(ident_subtype, "array_declarator")) {
 				int ident_node_child_count = ts_node_named_child_count(ident_type1);
 				if (ident_node_child_count != 2) {
 					node_malformed_error(ident_type1, "identifier");
 					return -1;
 				}
-				TSNode ident_type2 = ts_node_named_child(ident_type1, 0);
-				const char *ident_subsubtype = ts_node_type(ident_type2);
-				printf("ident subsubtype: %s\n", ident_subsubtype);
+				TSNode array_ident = ts_node_named_child(ident_type1, 0);
+				TSNode array_size = ts_node_named_child(ident_type1, 1);
+				if (ts_node_is_null(array_ident) || ts_node_is_null(array_size)) {
+					node_malformed_error(identnode, "ptr array identifier");
+					return -1;
+				}
+				const char *real_array_ident = ts_node_sub_string(array_ident, text);
+				const char *real_array_size = ts_node_sub_string(array_size, text);
+				if (!real_array_ident || !real_array_size) {
+					node_malformed_error(identnode, "ptr array identifier");
+					return -1;
+				}
+				int array_sz = atoi(real_array_size);
+				printf("array pointers of to %s size %d\n", real_array_ident, array_sz);
 			} else if (!strcmp(ident_subtype, "field_identifier")) {
 				const char *ptr_ident = ts_node_sub_string(ident_type1, text);
 				printf("simple pointer to %s\n", ptr_ident);
@@ -89,6 +102,7 @@ int parse_identifier_node(CParserState *state, TSNode identnode, const char *tex
 				return -1;
 			}
 		// Or an array
+		// e.g. "int a[10];"
 		} else if (!strcmp(ident_type, "array_declarator")) {
 			int array_node_child_count = ts_node_named_child_count(identnode);
 			if (array_node_child_count != 2) {
@@ -436,6 +450,7 @@ int parse_union_node(CParserState *state, TSNode unionnode, const char *text) {
 					return -1;
 				}
 				eprintf("field type: %s field_identifier: %s\n", real_type, real_identifier);
+				parse_identifier_node(state, field_identifier, text);
 			} else {
 				// 3rd case, complex type
 				// AST looks like
