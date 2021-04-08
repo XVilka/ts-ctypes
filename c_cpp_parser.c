@@ -33,6 +33,8 @@ int main(int argc, char **argv) {
 	if (!source_code || !read_bytes) {
 		return -1;
 	}
+	ut64 file_size = rz_file_size(file_path);
+	printf("File size is %"PFMT64d" bytes, read %zu bytes\n", file_size, read_bytes);
 
 	// Create a parser.
 	TSParser *parser = ts_parser_new();
